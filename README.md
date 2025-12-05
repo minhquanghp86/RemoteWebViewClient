@@ -167,36 +167,38 @@ text:
 
 ```
 
-### Supported Parameters
+### Thông số được hỗ trợ
 
 | YAML key                | Type      | Required | Example                          | Description |
 |-------------------------|-----------|:--------:|----------------------------------|-------------|
-| `display_id`            | id        | ❌       | `panel`                           | Display to draw on. Optional, if only one display is defined in the YAML.|
-| `touchscreen_id`        | id        | ❌       | `touch`                           | Touch input source. Optional, if only one touchscreen is defined in the YAML. |
-| `server`                | string    | ✅       | `172.16.0.252:8081`              | WebSocket server address. Must be `hostname_or_IP:port`. |
-| `url`                   | string    | ✅       | `http://…/dashboard`             | Page to open on connect. |
-| `device_id`             | string    | ❌       | `"my-device"` or auto (`esp32-<mac>`) | Identifier used by the server. If not set, the component derives `esp32-<mac>` from the chip MAC and still sends it. |
+| `display_id`            | id        | ❌       | `panel`                           | Hiển thị để vẽ. Tùy chọn, nếu chỉ có một màn hình được định nghĩa trong YAML|
+| `touchscreen_id`        | id        | ❌       | `touch`                           | Nguồn đầu vào cảm ứng. Tùy chọn, nếu chỉ có một màn hình cảm ứng được định nghĩa trong YAML.|
+| `server`                | string    | ✅       | `172.16.0.252:8081`              | địa chỉ máy chủ websocket. phải là `hostname_or_ip:port`. |
+| `url`                   | string    | ✅       | `http://…/dashboard`             | Mở trang khi kết nối. |
+| `device_id`             | string    | ❌       | `"my-device"` or auto (`esp32-<mac>`) | Mã định danh được máy chủ sử dụng. Nếu không được thiết lập, thành phần sẽ lấy `esp32-<mac>` từ MAC của chip và gửi nó. |
 | `tile_size`             | int       | ❌       | `32`                              | Tile edge size in pixels. Helps the server choose tile packing; it’s best to keep it a multiple of 16. |
-| `full_frame_tile_count` | int       | ❌       | `4`                               | Number of tiles the server should use for full-frame updates. |
-| `full_frame_area_threshold` | float | ❌       | `0.50`                            | Area delta (fraction of screen) above which the server should send a full frame. |
-| `full_frame_every`      | int       | ❌       | `50`                              | Force a full-frame update every N frames (0 disables). |
-| `every_nth_frame`       | int       | ❌       | `1`                               | Frame-rate divider. Server should send only every Nth frame. |
-| `min_frame_interval`    | int (ms)  | ❌       | `80`                              | Minimum time between frames on the wire, in milliseconds. |
-| `jpeg_quality`          | int       | ❌       | `85`                              | JPEG quality hint for the server’s encoder. |
-| `max_bytes_per_msg`     | int (B)   | ❌       | `14336` or `61440`                | Upper bound for a single WS binary message. |
-| `big_endian`            | bool      | ❌       | `true` or `false`                 | Use big-endian RGB565 pixel order for JPEG output (set false for little-endian panels). Default is `true`. |
-| `rotation`              | int       | ❌       | 0, 90, 180, 270                   | Enables software rotation for both the display and touchscreen. |
+| `full_frame_tile_count` | int       | ❌       | `4`                               | Số lượng ô mà máy chủ nên sử dụng để cập nhật toàn khung hình. |
+| `full_frame_area_threshold` | float | ❌       | `0.50`                            | Diện tích delta (phần màn hình) mà máy chủ phải gửi một khung hình đầy đủ. |
+| `full_frame_every`      | int       | ❌       | `50`                              | Buộc cập nhật toàn khung hình sau mỗi N khung hình (0 vô hiệu hóa). |
+| `every_nth_frame`       | int       | ❌       | `1`                               | Bộ chia tốc độ khung hình. Máy chủ chỉ nên gửi mỗi khung hình thứ N. |
+| `min_frame_interval`    | int (ms)  | ❌       | `80`                              | Thời gian tối thiểu giữa các khung hình, tính bằng mili giây.|
+| `jpeg_quality`          | int       | ❌       | `85`                              | Gợi ý chất lượng JPEG cho bộ mã hóa của máy chủ. |
+| `max_bytes_per_msg`     | int (B)   | ❌       | `14336` or `61440`                | Giới hạn trên cho một tin nhắn nhị phân WS duy nhất. |
+| `big_endian`            | bool      | ❌       | `true` or `false`                 | Sử dụng thứ tự pixel RGB565 big-endian cho đầu ra JPEG (đặt false cho bảng điều khiển little-endian). Mặc định là `true`. |
+| `rotation`              | int       | ❌       | 0, 90, 180, 270                   | Cho phép xoay phần mềm cho cả màn hình hiển thị và màn hình cảm ứng. |
 
-## Recommendations
+## Khuyến nghị
 
-- **full_frame_tile_count** set to 1 is the most efficient way to do a full-screen update; use it if your network/device memory allows it.
-- **every_nth_frame** must be 1 if you don’t want to miss changes (though increasing it may reduce server load). I recommend keeping it set to 1.
-- **min_frame_interval** should be slightly larger than the render time reported by the self-test (set `self-test` as a url parameter in the YAML).
-- **max_bytes_per_msg** should be larger than your maximum tile size (full-frame or partial).
-- **jpeg_quality** — lower values encode faster and reduce bandwidth (but increase artifacts). Start at **85**, drop toward **70–75** if you need speed.
-- **big_endian** — defaults to **true**. If colors look wrong (swapped/tinted), set `big_endian: false` for panels that require little-endian RGB565.
-- **Red tile / red screen** — this indicates a tile payload exceeded `max_bytes_per_msg`. Increase `max_bytes_per_msg` or reduce tile size/JPEG quality so each tile fits.
+- **full_frame_tile_count** được đặt thành 1 là cách hiệu quả nhất để thực hiện cập nhật toàn màn hình; hãy sử dụng tùy chọn này nếu bộ nhớ mạng/thiết bị của bạn cho phép.
 
-## No on-screen keyboard
+- **every_nth_frame** phải bằng 1 nếu bạn không muốn bỏ lỡ các thay đổi (mặc dù việc tăng giá trị này có thể làm giảm tải máy chủ). Tôi khuyên bạn nên giữ nguyên giá trị này ở mức 1.
 
-There’s no on-screen keyboard; you’ll need to [use Chrome DevTools](https://github.com/strange-v/RemoteWebViewServer#accessing-the-servers-tab-with-chrome-devtools) for any required input.
+- **min_frame_interval** nên lớn hơn một chút so với thời gian render được báo cáo bởi self-test (đặt `self-test` làm tham số url trong yaml).
+- **max_bytes_per_msg** nên lớn hơn kích thước ô tối đa của bạn (toàn khung hình hoặc một phần).
+- **jpeg_quality** — các giá trị thấp hơn sẽ mã hóa nhanh hơn và giảm băng thông (nhưng làm tăng hiện tượng nhiễu). Bắt đầu từ **85**, giảm xuống **70–75** nếu bạn cần tốc độ.
+- **big_endian** — mặc định là **true**. Nếu màu sắc trông không đúng (bị hoán đổi/bị tô màu), hãy đặt `big_endian: false` cho các bảng điều khiển yêu cầu chế độ little-endian RGB565.
+- **Red tile/red screen** — điều này cho biết tải trọng ô đã vượt quá `max_bytes_per_msg`. Tăng `max_bytes_per_msg` hoặc giảm kích thước ô/chất lượng JPEG để mỗi ô vừa vặn.
+
+## Không có bàn phím trên màn hình
+
+Không có bàn phím trên màn hình; bạn sẽ cần [sử dụng công cụ phát triển Chrome](https://github.com/strange-v/RemoteWebViewServer#accessing-the-servers-tab-with-chrome-devtools) cho bất kỳ dữ liệu đầu vào nào cần thiết.
