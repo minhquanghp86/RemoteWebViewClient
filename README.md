@@ -171,7 +171,7 @@ text:
 
 | YAML key                | Type      | Required | Example                          | Description |
 |-------------------------|-----------|:--------:|----------------------------------|-------------|
-| `display_id`            | id        | ❌       | `panel`                           | Hiển thị để vẽ. Tùy chọn, nếu chỉ có một màn hình được định nghĩa trong YAML|
+| `display_id`            | id        | ❌       | `panel`                           | ID của màn hình để vẽ. Tùy chọn, nếu chỉ có một màn hình được định nghĩa trong YAML|
 | `touchscreen_id`        | id        | ❌       | `touch`                           | Nguồn đầu vào cảm ứng. Tùy chọn, nếu chỉ có một màn hình cảm ứng được định nghĩa trong YAML.|
 | `server`                | string    | ✅       | `172.16.0.252:8081`              | địa chỉ máy chủ websocket. phải là `hostname_or_ip:port`. |
 | `url`                   | string    | ✅       | `http://…/dashboard`             | Mở trang khi kết nối. |
