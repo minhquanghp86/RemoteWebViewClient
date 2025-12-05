@@ -4,13 +4,13 @@
 
 [Demo video](https://youtu.be/rD2aYUUrv5o)
 
-This is a client that connects to [Remote WebView Server](https://github.com/strange-v/RemoteWebViewServer) — a headless browser that renders target web pages (e.g., Home Assistant dashboards) and streams them as image tiles over WebSocket to lightweight clients (ESP32 displays).
+Đây là một máy khách kết nối tới [Remote WebView Server](https://github.com/minhquanghp86/RemoteWebViewServer) — trình duyệt không có giao diện hiển thị các trang web mục tiêu (ví dụ: bảng điều khiển Home Assistant) và truyền phát chúng dưới dạng các ô hình ảnh qua WebSocket đến các máy khách nhẹ (màn hình ESP32).
 
 ## ESPHome component
 
-The latest version of the client is implemented as an ESPHome external component, which greatly simplifies installation and configuration for end users. It leverages the display and touchscreen components to render images and handle touch input.
+Phiên bản mới nhất của máy khách được triển khai dưới dạng thành phần bên ngoài ESPHome, giúp đơn giản hóa đáng kể việc cài đặt và cấu hình cho người dùng cuối. Nó tận dụng các thành phần hiển thị và màn hình cảm ứng để hiển thị hình ảnh và xử lý đầu vào cảm ứng.
 
-### Configuration example (Guition-ESP32-S3-4848S040)
+### Ví dụ (Guition-ESP32-S3-4848S040)
 
 ```yaml
 esphome:
