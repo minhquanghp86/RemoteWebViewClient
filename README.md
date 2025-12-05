@@ -176,7 +176,7 @@ text:
 | `server`                | string    | ✅       | `172.16.0.252:8081`              | địa chỉ máy chủ websocket. phải là `hostname_or_ip:port`. |
 | `url`                   | string    | ✅       | `http://…/dashboard`             | Mở trang khi kết nối. |
 | `device_id`             | string    | ❌       | `"my-device"` or auto (`esp32-<mac>`) | Mã định danh được máy chủ sử dụng. Nếu không được thiết lập, thành phần sẽ lấy `esp32-<mac>` từ MAC của chip và gửi nó. |
-| `tile_size`             | int       | ❌       | `32`                              | Tile edge size in pixels. Helps the server choose tile packing; it’s best to keep it a multiple of 16. |
+| `tile_size`             | int       | ❌       | `32`                              | Kích thước cạnh ô tính bằng pixel. Giúp máy chủ chọn cách đóng gói ô; tốt nhất nên giữ kích thước này là bội số của 16. |
 | `full_frame_tile_count` | int       | ❌       | `4`                               | Số lượng ô mà máy chủ nên sử dụng để cập nhật toàn khung hình. |
 | `full_frame_area_threshold` | float | ❌       | `0.50`                            | Diện tích delta (phần màn hình) mà máy chủ phải gửi một khung hình đầy đủ. |
 | `full_frame_every`      | int       | ❌       | `50`                              | Buộc cập nhật toàn khung hình sau mỗi N khung hình (0 vô hiệu hóa). |
