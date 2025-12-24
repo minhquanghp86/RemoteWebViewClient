@@ -1,0 +1,468 @@
+      # Màn hình Guition JC4827w543c 4.3 inch #
+
+ ###### CẤU HÌNH GPIO Guition JC4827W543C #######
+# SD_MISO     13
+# SD_MOSI     11
+# SD_SCLK     12
+# SD_CS       10
+
+# Backlight.  1
+# LRCLK.      2
+# BCLK.       42
+
+# Dout_pin.   41 Speaker
+
+# SDA.        8 (touch)
+# SCL.        4 (touch)
+
+# interrupt_pin: 3 (touch)      
+# reset_pin:  38.  (touch)
+
+# clk_pin:    47.  (display)
+# data_pins:  [21,48,40,39].  (display)
+# CS pin.     45.  (display)
+
+# Baterry_sensor:     5
+
+
+# guition-esp32-jc4827w543C 4.3-inch IPS 480*272 Smart Screen
+# https://github.com/profi-max/JC4827W543_4.3inch_ESP32S3_board/tree/main
+#
+# Hardware configuration file
+
+
+##########################################START#################################################
+
+external_components:
+  - source: 
+      type: local
+      path: components 
+debug:
+  update_interval: 2s
+logger:
+  
+remote_webview:
+  id: rwv
+  server: 192.168.10.2:8081
+  url: http://192.168.10.2:8123/dashboard-mobile/2
+  full_frame_tile_count: 1
+  max_bytes_per_msg: 61440
+  jpeg_quality: 85
+  rotation: 90°
+
+
+text:
+  - platform: template
+    id: rwv_default_url
+    name: "URL mặc định"
+    optimistic: true
+    restore_value: true
+    mode: TEXT
+    min_length: 1
+
+
+  - platform: template
+    id: rwv_url
+    name: "URL hiển thị"
+    optimistic: true
+    restore_value: false
+    mode: TEXT
+    min_length: 1
+    set_action:
+      - lambda: id(inactivity_timer).execute();
+      - lambda: |-
+          std::string base_url = x.c_str();
+          std::string url = base_url;
+
+          // 👉 chỉ append ?t= nếu là ảnh
+          if (
+            base_url.ends_with(".jpg")  ||
+            base_url.ends_with(".jpeg") ||
+            base_url.ends_with(".png")  ||
+            base_url.ends_with(".webp")
+          ) {
+            url += "?t=";
+            url += to_string(millis());
+          }
+
+          if (!id(rwv).open_url(url)) {
+            id(rwv).set_url(url);
+            ESP_LOGI("remote_webview", "URL queued (not connected): %s", url.c_str());
+          } else {
+            ESP_LOGI("remote_webview", "URL loaded: %s", url.c_str());
+          }
+
+number:
+  - platform: template
+    name: "Sleep time"
+    id: sleep_time
+    optimistic: true
+    initial_value: 15
+    restore_value: yes
+    unit_of_measurement: "s"
+    device_class: duration
+    mode: box
+    min_value: 5
+    max_value: 600
+    step: 1
+
+script:
+  - id: inactivity_timer
+    mode: restart
+    then:
+      - if:
+          condition:
+            light.is_off: display_backlight
+          then:
+            - light.turn_on:
+                id: display_backlight
+            - delay: 0.5s
+            - lambda: |-
+                id(rwv).disable_touch(false);
+      - delay: !lambda 'return id(sleep_time).state * 1000;'
+      - light.turn_off:
+          id: display_backlight
+      - lambda: |-
+          id(rwv).disable_touch(true);
+
+sensor:
+  - platform: debug
+    free:
+      name: "Heap Free"
+    block:
+      name: "Heap Max Block"
+    loop_time:
+      name: "Loop Time"
+    psram:
+      name: Free PSRam
+      unit_of_measurement: "MB"
+      icon: "mdi:memory"
+      accuracy_decimals: 1
+      filters:
+        - lambda: return x /1048576;
+    cpu_frequency:
+      name: "CPU Frequency"
+      unit_of_measurement: "MHz"
+      filters:
+        - lambda: return x /1000000;
+
+text_sensor:  
+
+  - platform: wifi_info
+    ip_address:
+      name: IP
+      id: ip_wifi
+    mac_address:
+      name: MAC ESP
+      id: mac_address
+    ssid:
+      name: WIFI KẾT NỐI
+      id: ssid_wifi
+
+button:
+  - platform: template
+    name: "Go Home"
+    id: go_home
+    icon: "mdi:home"
+    on_press:
+      then:
+        - lambda: |-
+            auto url = id(rwv_default_url).state;
+            if (url.size() == 0) {
+              ESP_LOGW("remote_webview", "Default URL is empty");
+              return;
+            }
+
+            if (!id(rwv).open_url(url)) {
+              id(rwv).set_url(url);
+              ESP_LOGI("remote_webview", "Default URL queued: %s", url.c_str());
+            } else {
+              ESP_LOGI("remote_webview", "Opened default URL: %s", url.c_str());
+            }
+
+
+  - platform: restart 
+    name: "Khởi động lại"
+    id: restart_switch  
+                  
+################################# END #######################################
+
+
+esphome:
+  name: guition-jc4827w543c
+  friendly_name: Guition 4827w543 WebView
+  platformio_options:
+    board_build.flash_mode: dio
+  on_boot:
+    priority: -100
+    then:
+      - script.execute: inactivity_timer
+
+      - lambda: |-
+          auto url = id(rwv_default_url).state;
+          if (url.size() > 0) {
+            id(rwv).set_url(url);
+          }
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  flash_size: 4MB
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      COMPILER_OPTIMIZATION_SIZE: y
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
+      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
+      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
+      CONFIG_SPIRAM_RODATA: y
+    advanced:
+    # Save 4k of space in flash
+      assertion_level: DISABLE
+      enable_lwip_mdns_queries: false
+      enable_lwip_bridge_interface: false   
+    components:
+      - name: "espressif/esp_websocket_client"
+        ref: 1.5.0
+      - name: "bitbank2/jpegdec"
+        source: https://github.com/strange-v/jpegdec-esphome    
+
+
+api:
+
+ota:
+  - platform: esphome 
+
+wifi:
+  ssid: XIAOMI
+  password: "tukhongdenchin"
+  manual_ip:
+    static_ip: 192.168.10.184
+    gateway: 192.168.10.1
+    subnet: 255.255.255.0
+    dns1: 8.8.8.8
+    dns2: 8.8.4.4
+  ap:
+    ssid: "Guition JC4827w543"
+    password: "12345678"
+
+captive_portal:
+    
+psram:
+  mode: octal
+  speed: 80MHz
+
+preferences:
+  flash_write_interval: 5min
+
+output:
+  # Backlight LED
+  - platform: ledc
+    pin:
+      number: 1
+    id: gpio_backlight_pwm
+    frequency: 1000Hz
+
+light:
+  - platform: monochromatic
+    output: gpio_backlight_pwm
+    name: Display Backlight
+    icon: mdi:lightbulb-on
+    id: display_backlight
+    restore_mode: ALWAYS_ON
+
+
+i2s_audio:
+    i2s_lrclk_pin:
+      number: 2
+    i2s_bclk_pin:
+      number: 42
+
+speaker:
+  - platform: i2s_audio
+    id: speaker_id
+    dac_type: external
+    i2s_dout_pin: GPIO41
+    sample_rate: 16000
+    bits_per_channel: 16bit
+    channel: mono
+
+
+  - platform: mixer
+    id: mixer_speaker_id
+    output_speaker: speaker_id
+    source_speakers:
+      - id: announcement_spk_mixer_input
+      - id: media_spk_mixer_input
+
+  - platform: resampler
+    id: media_spk_resampling_input
+    output_speaker: media_spk_mixer_input
+    
+
+  - platform: resampler
+    id: announcement_spk_resampling_input
+    output_speaker: announcement_spk_mixer_input
+
+media_player:
+  - platform: speaker
+    name: "Loa 3"
+    id: speaker_media_player_id
+    task_stack_in_psram: true
+    codec_support_enabled: true
+    volume_max: 100%
+    announcement_pipeline:
+      speaker: announcement_spk_resampling_input
+      format: WAV
+      num_channels: 1
+      sample_rate: 16000
+    media_pipeline:
+      speaker: media_spk_resampling_input
+      format: WAV
+      num_channels: 1     
+      sample_rate: 16000 
+    buffer_size: 1000000
+
+
+
+    
+
+i2c:
+  - id: bus_a
+    sda: GPIO8
+    scl: GPIO4
+    scan: true
+
+touchscreen:
+  - platform: gt911
+    id: my_touchscreen
+    i2c_id: bus_a
+    interrupt_pin:
+      number: 3
+      ignore_strapping_warning: true
+    reset_pin: GPIO38
+    transform:
+      mirror_x: true
+      mirror_y: true
+    on_touch:
+      then:
+        - script.execute: inactivity_timer
+
+
+spi:
+  id: quad_spi
+  type: quad
+  clk_pin: GPIO47
+  data_pins: [21,48,40,39]
+
+display:
+  - platform: qspi_dbi
+    id: my_display
+    update_interval: never
+    auto_clear_enabled: False
+    model: CUSTOM
+    data_rate: 20MHz
+    dimensions:
+      width: 480
+      height: 272
+    cs_pin:
+      number: 45
+      ignore_strapping_warning: true
+    invert_colors: true
+    rotation: 180
+    init_sequence:
+      - [0xff,0xa5]
+      - [0x36,0xc0]
+      - [0x3A,0x01]
+      - [0x41,0x03]
+      - [0x44,0x15]
+      - [0x45,0x15]
+      - [0x7d,0x03]
+      - [0xc1,0xbb]
+      - [0xc2,0x05]
+      - [0xc3,0x10]
+      - [0xc6,0x3e]
+      - [0xc7,0x25]
+      - [0xc8,0x11]
+      - [0x7a,0x5f]
+      - [0x6f,0x44]
+      - [0x78,0x70]
+      - [0xc9,0x00]
+      - [0x67,0x21]
+      - [0x51,0x0a]
+      - [0x52,0x76]
+      - [0x53,0x0a]
+      - [0x54,0x76]
+      - [0x46,0x0a]
+      - [0x47,0x2a]
+      - [0x48,0x0a]
+      - [0x49,0x1a]
+      - [0x56,0x43]
+      - [0x57,0x42]
+      - [0x58,0x3c]
+      - [0x59,0x64]
+      - [0x5a,0x41]
+      - [0x5b,0x3c]
+      - [0x5c,0x02]
+      - [0x5d,0x3c]
+      - [0x5e,0x1f]
+      - [0x60,0x80]
+      - [0x61,0x3f]
+      - [0x62,0x21]
+      - [0x63,0x07]
+      - [0x64,0xe0]
+      - [0x65,0x02]
+      - [0xca,0x20]
+      - [0xcb,0x52]
+      - [0xcc,0x10]
+      - [0xcd,0x42]
+      - [0xd0,0x20]
+      - [0xd1,0x52]
+      - [0xd2,0x10]
+      - [0xd3,0x42]
+      - [0xd4,0x0a]
+      - [0xd5,0x32]
+      - [0x80,0x00]
+      - [0xa0,0x00]
+      - [0x81,0x07]
+      - [0xa1,0x06]
+      - [0x82,0x02]
+      - [0xa2,0x01]
+      - [0x86,0x11]
+      - [0xa6,0x10]
+      - [0x87,0x27]
+      - [0xa7,0x27]
+      - [0x83,0x37]
+      - [0xa3,0x37]
+      - [0x84,0x35]
+      - [0xa4,0x35]
+      - [0x85,0x3f]
+      - [0xa5,0x3f]
+      - [0x88,0x0b]
+      - [0xa8,0x0b]
+      - [0x89,0x14]
+      - [0xa9,0x14]
+      - [0x8a,0x1a]
+      - [0xaa,0x1a]
+      - [0x8b,0x0a]
+      - [0xab,0x0a]
+      - [0x8c,0x14]
+      - [0xac,0x08]
+      - [0x8d,0x17]
+      - [0xad,0x07]
+      - [0x8e,0x16]
+      - [0xae,0x06]
+      - [0x8f,0x1B]
+      - [0xaf,0x07]
+      - [0x90,0x04]
+      - [0xb0,0x04]
+      - [0x91,0x0a]
+      - [0xb1,0x0a]
+      - [0x92,0x16]
+      - [0xb2,0x15]
+      - [0xff,0x00]
+      - [0x11,0x00]
+      - [0x29,0x00]
+
+
