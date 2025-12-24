@@ -1,4 +1,4 @@
-# Sử dụng cho màn hình Guition 480x480 4.0 inch
+# Sử dụng cho màn hình Guition ESP32 S3 4848S040 4.0 inch
 esphome:
   name: guition-webview-local
   friendly_name: Guition WebView Local
