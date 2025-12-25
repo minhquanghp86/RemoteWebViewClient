@@ -25,6 +25,53 @@ static inline void websocket_force_reconnect(esp_websocket_client_handle_t clien
   esp_websocket_client_start(client);
 }
 
+
+
+
+
+
+
+
+void RemoteWebView::reconnect_ws() {
+  ESP_LOGI("remote_webview", "Forcing websocket reconnect...");
+
+  // 1. Nếu websocket đang tồn tại thì đóng lại
+  if (ws_client_) {
+
+    if (esp_websocket_client_is_connected(ws_client_)) {
+      ESP_LOGI("remote_webview", "Closing active websocket...");
+      esp_websocket_client_close(ws_client_, pdMS_TO_TICKS(3000));
+    }
+
+    ESP_LOGI("remote_webview", "Stopping websocket client...");
+    esp_websocket_client_stop(ws_client_);
+
+    ESP_LOGI("remote_webview", "Destroying websocket client...");
+    esp_websocket_client_destroy(ws_client_);
+
+    ws_client_ = nullptr;
+  }
+
+  // 2. Reset frame / buffer nếu có (tránh lỗi vặt khi reconnect)
+  frame_id_ = 0xffffffffu;
+
+  // 3. Tạo lại websocket task (hàm gốc của lib bạn đang dùng)
+  ESP_LOGI("remote_webview", "Starting websocket task again...");
+  this->start_ws_task_();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 void RemoteWebView::setup() {
   self_ = this;
 
