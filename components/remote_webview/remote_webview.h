@@ -30,6 +30,9 @@ namespace remote_webview {
 
 class RemoteWebView : public Component {
  public:
+  const std::string &get_url() const {
+    return url_;
+  }
   void set_display(display::Display *d) { display_ = d; }
   void set_touchscreen(touchscreen::Touchscreen *t) { touch_ = t; }
   void set_device_id(const std::string &s) { device_id_ = s; }
@@ -49,6 +52,7 @@ class RemoteWebView : public Component {
   bool open_url(const std::string &s);
 
   void setup() override;
+  void reconnect_ws();
   void loop() override {}
   void dump_config() override;
   float get_setup_priority() const override { return setup_priority::LATE; }
@@ -143,6 +147,20 @@ class RemoteWebView : public Component {
   static void append_q_int_(std::string &s, const char *k, int v);
   static void append_q_float_(std::string &s, const char *k, float v);
   static void append_q_str_(std::string &s, const char *k, const char *v);
+
+  // ============= THÊM TỪ ĐÂY (trước }; cuối class) =============
+    public:
+    bool is_ws_connected() const {
+      return ws_client_ && esp_websocket_client_is_connected(ws_client_);
+    }
+
+    void send_ws_text(const std::string &text) {
+      if (ws_client_ && esp_websocket_client_is_connected(ws_client_)) {
+              esp_websocket_client_send_text(ws_client_, text.c_str(), text.length(), portMAX_DELAY);
+      }
+    }
+    
+  // ============= ĐẾN ĐÂY =============
 
   friend class RemoteWebViewTouchListener;
 };
