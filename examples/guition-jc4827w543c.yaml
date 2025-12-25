@@ -321,8 +321,8 @@ ota:
   - platform: esphome 
 
 wifi:
-  ssid: XIAOMI
-  password: "tukhongdenchin"
+  ssid: ""
+  password: ""
   manual_ip:
     static_ip: 192.168.10.184
     gateway: 192.168.10.1
