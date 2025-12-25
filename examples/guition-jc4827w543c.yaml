@@ -1,6 +1,4 @@
-      # Màn hình Guition JC4827w543c 4.3 inch #
-
- ###### CẤU HÌNH GPIO Guition JC4827W543C #######
+       ###### CẤU HÌNH GPIO Guition JC4827W543C #######
 # SD_MISO     13
 # SD_MOSI     11
 # SD_SCLK     12
@@ -32,11 +30,15 @@
 
 
 ##########################################START#################################################
-
 external_components:
-  - source: 
-      type: local
-      path: components 
+  - source: github://minhquanghp86/RemoteWebViewClient@main
+    refresh: 0s
+    components: [ remote_webview ]
+
+#external_components:
+#  - source: 
+#      type: local
+#      path: components 
 debug:
   update_interval: 2s
 logger:
@@ -48,7 +50,27 @@ remote_webview:
   full_frame_tile_count: 1
   max_bytes_per_msg: 61440
   jpeg_quality: 85
-  rotation: 90°
+  tile_size: 32
+ 
+
+
+select:
+  - platform: template
+    name: "Xoay màn hình"
+    id: rotation_option
+    optimistic: true
+    restore_value: true
+    options:
+      - "0"
+      - "90"
+      - "180"
+      - "270"
+    initial_option: "0"
+    set_action:
+      - lambda: |-
+          int rotation = atoi(x.c_str());
+          id(rwv).set_rotation(rotation);
+          id(rwv).reconnect_ws();
 
 
 text:
@@ -92,6 +114,8 @@ text:
             ESP_LOGI("remote_webview", "URL loaded: %s", url.c_str());
           }
 
+
+
 number:
   - platform: template
     name: "Sleep time"
@@ -126,6 +150,64 @@ script:
           id(rwv).disable_touch(true);
 
 sensor:
+  - platform: adc
+    pin: GPIO5
+    id: raw_adc
+    name: "Raw ADC"
+    attenuation: auto
+    internal: true
+    update_interval: 1s
+    accuracy_decimals: 4
+    filters:
+      - sliding_window_moving_average:
+          window_size: 20
+          send_every: 10
+
+  - platform: template
+    id: battery_voltage
+    name: "Battery Voltage"
+    unit_of_measurement: "V"
+    accuracy_decimals: 3
+    update_interval: 1s
+    lambda: |-
+      // hệ số cầu phân áp 68k + 100k
+      float v = id(raw_adc).state * 1.679;
+
+      // ==== Hiệu chuẩn ADC ====
+      // đặt giá trị đo thực tế từ đồng hồ để bù
+      // vd: nếu ADC đọc 4.10V nhưng đồng hồ = 4.12V
+      // => offset = +0.02
+      float offset = 0.07;
+      return v + offset;
+
+  - platform: template
+    id: battery_percent
+    name: "Battery Percent"
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    update_interval: 1s
+    lambda: |-
+      float v = id(battery_voltage).state;
+
+      // ---- SOC cho Li-ion (đường cong xấp xỉ thực tế) ----
+      if (v < 3.00) return 0;
+      if (v < 3.30) return 5;
+      if (v < 3.50) return 10;
+      if (v < 3.60) return 20;
+      if (v < 3.70) return 35;
+      if (v < 3.75) return 45;
+      if (v < 3.80) return 55;
+      if (v < 3.85) return 65;
+      if (v < 3.90) return 75;
+      if (v < 4.00) return 85;
+      if (v < 4.10) return 92;
+      if (v < 4.15) return 97;
+      if (v < 4.20) return 99;
+      return 100;
+
+
+
+
   - platform: debug
     free:
       name: "Heap Free"
@@ -180,7 +262,6 @@ button:
               ESP_LOGI("remote_webview", "Opened default URL: %s", url.c_str());
             }
 
-
   - platform: restart 
     name: "Khởi động lại"
     id: restart_switch  
@@ -197,12 +278,15 @@ esphome:
     priority: -100
     then:
       - script.execute: inactivity_timer
-
+      
       - lambda: |-
           auto url = id(rwv_default_url).state;
           if (url.size() > 0) {
             id(rwv).set_url(url);
           }
+      - lambda: |-
+          int rotation = atoi(id(rotation_option).state.c_str());
+          id(rwv).set_rotation(rotation);
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -226,7 +310,9 @@ esp32:
       - name: "espressif/esp_websocket_client"
         ref: 1.5.0
       - name: "bitbank2/jpegdec"
-        source: https://github.com/strange-v/jpegdec-esphome    
+        source: https://github.com/minhquanghp86/jpegdec-esphome
+
+  #source: https://github.com/strange-v/jpegdec-esphome    
 
 
 api:
@@ -235,8 +321,8 @@ ota:
   - platform: esphome 
 
 wifi:
-  ssid: ""
-  password: ""
+  ssid: XIAOMI
+  password: "tukhongdenchin"
   manual_ip:
     static_ip: 192.168.10.184
     gateway: 192.168.10.1
@@ -254,7 +340,7 @@ psram:
   speed: 80MHz
 
 preferences:
-  flash_write_interval: 5min
+  flash_write_interval: 1s
 
 output:
   # Backlight LED
@@ -324,9 +410,6 @@ media_player:
       sample_rate: 16000 
     buffer_size: 1000000
 
-
-
-    
 
 i2c:
   - id: bus_a
