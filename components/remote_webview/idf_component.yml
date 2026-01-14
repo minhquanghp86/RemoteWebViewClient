@@ -3,6 +3,7 @@ dependencies:
   - espressif/esp_websocket_client
   - espressif/esp-dsp
   - jpegdec
+  - espressif/esp_jpeg: "^1.0.0"
 
   - esp_driver_jpeg:
     require: private
