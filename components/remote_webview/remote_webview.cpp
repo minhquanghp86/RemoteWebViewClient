@@ -79,6 +79,14 @@ void RemoteWebView::setup() {
     ESP_LOGE(TAG, "no display");
     return;
   }
+  // ... existing setup code ...
+  
+  // Setup video decoder if enabled
+  if (this->video_enabled_) {
+    this->video_decoder_.setup(this->display_);
+    ESP_LOGI(TAG, "Video streaming enabled");
+  }
+}
 
   display_width_ = display_->get_width();
   display_height_ = display_->get_height();
