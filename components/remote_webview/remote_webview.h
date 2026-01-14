@@ -33,6 +33,22 @@ class RemoteWebView : public Component {
   const std::string &get_url() const {
     return url_;
   }
+  // ... existing methods ...
+  
+  // Video methods
+  void set_video_enabled(bool enabled) { this->video_enabled_ = enabled; }
+  void set_video_server(const std::string &server) { this->video_server_ = server; }
+  void set_camera_entity(const std::string &entity) { this->camera_entity_ = entity; }
+  
+ protected:
+  // ... existing members ...
+  
+  // Video members
+  bool video_enabled_{false};
+  std::string video_server_;
+  std::string camera_entity_;
+  VideoDecoder video_decoder_;
+};
   void set_display(display::Display *d) { display_ = d; }
   void set_touchscreen(touchscreen::Touchscreen *t) { touch_ = t; }
   void set_device_id(const std::string &s) { device_id_ = s; }
