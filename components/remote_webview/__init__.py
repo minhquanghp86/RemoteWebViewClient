@@ -18,7 +18,9 @@ CONF_MIN_FRAME_INTERVAL = "min_frame_interval"
 CONF_JPEG_QUALITY = "jpeg_quality"
 CONF_MAX_BYTES_PER_MSG = "max_bytes_per_msg"
 CONF_BIG_ENDIAN = "big_endian"
-
+CONF_VIDEO_ENABLED = "video_enabled"
+CONF_VIDEO_SERVER = "video_server"
+CONF_CAMERA_ENTITY = "camera_entity"
 _SERVER_RE = re.compile(
     r"^(?P<host>[A-Za-z0-9](?:[A-Za-z0-9\-\.]*[A-Za-z0-9])?)\:(?P<port>\d{1,5})$"
 )
@@ -62,9 +64,11 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_MAX_BYTES_PER_MSG): cv.int_,
         cv.Optional(CONF_BIG_ENDIAN): cv.boolean,
         cv.Optional(CONF_ROTATION): validate_rotation,
+        cv.Optional(CONF_VIDEO_ENABLED, default=False): cv.boolean,
+        cv.Optional(CONF_VIDEO_SERVER): validate_host_port,
+        cv.Optional(CONF_CAMERA_ENTITY): cv.string,
     }
 ).extend(cv.COMPONENT_SCHEMA)
-
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
 
@@ -100,5 +104,12 @@ async def to_code(config):
     if CONF_ROTATION in config:
         cg.add(var.set_rotation(config[CONF_ROTATION]))
 
+    # Video streaming config
+    if CONF_VIDEO_ENABLED in config:
+        cg.add(var.set_video_enabled(config[CONF_VIDEO_ENABLED]))
+    if CONF_VIDEO_SERVER in config:
+        cg.add(var.set_video_server(config[CONF_VIDEO_SERVER]))
+    if CONF_CAMERA_ENTITY in config:
+        cg.add(var.set_camera_entity(config[CONF_CAMERA_ENTITY]))
 
     await cg.register_component(var, config)
