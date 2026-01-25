@@ -1,13 +1,19 @@
-       ###### CẤU HÌNH GPIO Guition JC4827W543C #######
+       ###### CẤU HÌNH GPIO Guition JC4827W543C
+       ###### Sử dụng espressif/esp_new_jpeg
 # SD_MISO     13
 # SD_MOSI     11
 # SD_SCLK     12
 # SD_CS       10
 
-# Backlight.  1
-# LRCLK.      2
-# BCLK.       42
+#7 SD(Mic).  DATA
+#15 WS(Mic)  LRCLK
+#16 SCK(Mic) BCLK
 
+
+# Backlight.  1
+
+# LRCLK.      2 Speaker
+# BCLK.       42 Speaker
 # Dout_pin.   41 Speaker
 
 # SDA.        8 (touch)
@@ -20,39 +26,135 @@
 # data_pins:  [21,48,40,39].  (display)
 # CS pin.     45.  (display)
 
-# Baterry_sensor:     5
+# Baterry_sensor:   5
 
+##################### YAML #####################
 
-# guition-esp32-jc4827w543C 4.3-inch IPS 480*272 Smart Screen
-# https://github.com/profi-max/JC4827W543_4.3inch_ESP32S3_board/tree/main
-#
-# Hardware configuration file
+esphome:
+  name: guition-webview-jc4827w543c
+  friendly_name: Guition Webview JC4827w543
+  platformio_options:
+    board_build.flash_mode: dio
+  on_boot:
+    priority: -100
+    then:
+      - script.execute: inactivity_timer
+      
+      - lambda: |-
+          auto url = id(rwv_default_url).state;
+          if (url.size() > 0) {
+            id(rwv).set_url(url);
+          }
+      - lambda: |-
+          int rotation = atoi(id(rotation_option).state.c_str());
+          id(rwv).set_rotation(rotation);
 
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  flash_size: 4MB
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      COMPILER_OPTIMIZATION_SIZE: y
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
+      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
+      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
+      CONFIG_SPIRAM_RODATA: y
+    advanced:
+    # Save 4k of space in flash
+      assertion_level: DISABLE
+      enable_lwip_mdns_queries: false
+      enable_lwip_bridge_interface: false   
+    components:
+      - name: "espressif/esp_websocket_client"
+        ref: 1.5.0
+      - name: "espressif/esp-dsp"
+        ref: 1.7.0
+      - name: "espressif/esp_new_jpeg"
+        ref: 1.0.0
 
-##########################################START#################################################
+api:
+  actions:
+    - action: show_fullscreen_image
+      variables:
+        url: string
+      then:
+        - text.set:
+            id: rwv_url
+            value: !lambda 'return url;'
+
+    - action: set_url_raw
+      variables:
+        url: string
+      then:
+        - lambda: |-
+            std::string final_url = url;
+
+            if (
+              final_url.ends_with(".jpg") ||
+              final_url.ends_with(".png") ||
+              final_url.ends_with(".webp")
+            ) {
+              final_url += "?t=" + to_string(millis());
+            }
+
+            if (!id(rwv).open_url(final_url)) {
+              id(rwv).set_url(final_url);
+            }
+
+wifi:
+  ssid:
+  password: ""
+  manual_ip:
+    static_ip:
+    gateway: 
+    subnet: 255.255.255.0
+    dns1: 8.8.8.8
+    dns2: 8.8.4.4
+  ap:
+    ssid: "Guition JC4827w543"
+    password: "12345678"
+
+ota:
+  - platform: esphome 
+
+captive_portal:
+
+debug:
+  update_interval: 5s
+
+logger:
+  
+psram:
+  mode: octal
+  speed: 80MHz
+
+preferences:
+  flash_write_interval: 1s
+
 external_components:
   - source: github://minhquanghp86/RemoteWebViewClient@main
     refresh: 0s
     components: [ remote_webview ]
 
+
 #external_components:
 #  - source: 
 #      type: local
 #      path: components 
-debug:
-  update_interval: 2s
-logger:
   
+
 remote_webview:
   id: rwv
   server: 192.168.10.2:8081
   url: http://192.168.10.2:8123/dashboard-mobile/2
-  full_frame_tile_count: 1
-  max_bytes_per_msg: 61440
-  jpeg_quality: 85
-  tile_size: 32
  
-
+  full_frame_tile_count: 1
+  max_bytes_per_msg: 40960 #61440
+  jpeg_quality: 70
+  tile_size: 32
 
 select:
   - platform: template
@@ -88,8 +190,9 @@ text:
     name: "URL hiển thị"
     optimistic: true
     restore_value: false
-    mode: TEXT
     min_length: 1
+    max_length: 255
+    mode: TEXT
     set_action:
       - lambda: id(inactivity_timer).execute();
       - lambda: |-
@@ -115,7 +218,6 @@ text:
           }
 
 
-
 number:
   - platform: template
     name: "Sleep time"
@@ -131,6 +233,7 @@ number:
     step: 1
 
 script:
+  
   - id: inactivity_timer
     mode: restart
     then:
@@ -143,11 +246,17 @@ script:
             - delay: 0.5s
             - lambda: |-
                 id(rwv).disable_touch(false);
-      - delay: !lambda 'return id(sleep_time).state * 1000;'
-      - light.turn_off:
-          id: display_backlight
-      - lambda: |-
-          id(rwv).disable_touch(true);
+      - if:
+          condition:
+            media_player.is_playing:
+          then:
+            
+          else:          
+          - delay: !lambda 'return id(sleep_time).state * 1000;'
+          - light.turn_off:
+              id: display_backlight
+          - lambda: |-
+              id(rwv).disable_touch(true);
 
 sensor:
   - platform: adc
@@ -168,7 +277,7 @@ sensor:
     name: "Battery Voltage"
     unit_of_measurement: "V"
     accuracy_decimals: 3
-    update_interval: 1s
+    update_interval: 5s
     lambda: |-
       // hệ số cầu phân áp 68k + 100k
       float v = id(raw_adc).state * 1.679;
@@ -177,6 +286,7 @@ sensor:
       // đặt giá trị đo thực tế từ đồng hồ để bù
       // vd: nếu ADC đọc 4.10V nhưng đồng hồ = 4.12V
       // => offset = +0.02
+
       float offset = 0.07;
       return v + offset;
 
@@ -185,7 +295,7 @@ sensor:
     name: "Battery Percent"
     unit_of_measurement: "%"
     accuracy_decimals: 0
-    update_interval: 1s
+    update_interval: 5s
     lambda: |-
       float v = id(battery_voltage).state;
 
@@ -204,8 +314,6 @@ sensor:
       if (v < 4.15) return 97;
       if (v < 4.20) return 99;
       return 100;
-
-
 
 
   - platform: debug
@@ -266,81 +374,6 @@ button:
     name: "Khởi động lại"
     id: restart_switch  
                   
-################################# END #######################################
-
-
-esphome:
-  name: guition-jc4827w543c
-  friendly_name: Guition 4827w543 WebView
-  platformio_options:
-    board_build.flash_mode: dio
-  on_boot:
-    priority: -100
-    then:
-      - script.execute: inactivity_timer
-      
-      - lambda: |-
-          auto url = id(rwv_default_url).state;
-          if (url.size() > 0) {
-            id(rwv).set_url(url);
-          }
-      - lambda: |-
-          int rotation = atoi(id(rotation_option).state.c_str());
-          id(rwv).set_rotation(rotation);
-
-esp32:
-  board: esp32-s3-devkitc-1
-  variant: esp32s3
-  flash_size: 4MB
-  framework:
-    type: esp-idf
-    sdkconfig_options:
-      COMPILER_OPTIMIZATION_SIZE: y
-      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
-      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
-      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
-      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
-      CONFIG_SPIRAM_RODATA: y
-    advanced:
-    # Save 4k of space in flash
-      assertion_level: DISABLE
-      enable_lwip_mdns_queries: false
-      enable_lwip_bridge_interface: false   
-    components:
-      - name: "espressif/esp_websocket_client"
-        ref: 1.5.0
-      - name: "espressif/esp-dsp"
-        ref: 1.7.0
-      - name: "espressif/esp_new_jpeg"
-        ref: 1.0.0
-
-api:
-
-ota:
-  - platform: esphome 
-
-wifi:
-  ssid: ""
-  password: ""
-  manual_ip:
-    static_ip: 192.168.10.184
-    gateway: 192.168.10.1
-    subnet: 255.255.255.0
-    dns1: 8.8.8.8
-    dns2: 8.8.4.4
-  ap:
-    ssid: "Guition JC4827w543"
-    password: "12345678"
-
-captive_portal:
-    
-psram:
-  mode: octal
-  speed: 80MHz
-
-preferences:
-  flash_write_interval: 1s
-
 output:
   # Backlight LED
   - platform: ledc
@@ -356,22 +389,29 @@ light:
     icon: mdi:lightbulb-on
     id: display_backlight
     restore_mode: ALWAYS_ON
+    on_turn_on:
+      then:
+        - script.execute: inactivity_timer
 
 
 i2s_audio:
+  - id: i2s_audio_bus
     i2s_lrclk_pin:
       number: 2
     i2s_bclk_pin:
       number: 42
 
+
 speaker:
   - platform: i2s_audio
     id: speaker_id
+    i2s_audio_id: i2s_audio_bus
     dac_type: external
     i2s_dout_pin: GPIO41
     sample_rate: 16000
     bits_per_channel: 16bit
     channel: mono
+   # task_stack_in_psram: trues
 
 
   - platform: mixer
@@ -408,7 +448,10 @@ media_player:
       num_channels: 1     
       sample_rate: 16000 
     buffer_size: 1000000
-
+    on_play:
+      - script.execute: inactivity_timer
+    on_idle:
+      - script.execute: inactivity_timer
 
 i2c:
   - id: bus_a
