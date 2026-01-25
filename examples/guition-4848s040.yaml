@@ -1,25 +1,68 @@
-# Sử dụng cho màn hình Guition ESP32 S3 4848S040 4.0 inch
+  ###### CẤU HÌNH GPIO Guition 4848S040 4.0 inch
+  ###### Sử dụng espressif/esp_new_jpeg
+# SD_MISO    
+# SD_MOSI     
+# SD_SCLK     
+# SD_CS       
+
+# Backlight.  38
+
+# LRCLK.      2 Speaker
+# BCLK.       1 Speaker
+# Dout_pin.   40 Speaker
+
+# SDA.        19 (touch)
+# SCL.        45 (touch)
+
+############## DISPLAY Pin ############
+#spi:
+# clk_pin: GPIO48
+# mosi_pin: GPIO47
+# cs_pin: 39
+# de_pin: 18
+# hsync_pin: 16
+# vsync_pin: 17
+# pclk_pin: 21
+#data_pins:
+#      red:
+#        - GPIO11
+#        - GPIO12
+#        - GPIO13
+#        - GPIO14
+#        - GPIO0
+#      green:
+#        - GPIO8
+#        - GPIO20
+#        - GPIO3
+#        - GPIO46
+#        - GPIO9
+#        - GPIO10
+#      blue:
+#        - GPIO4
+#        - GPIO5
+#        - GPIO6
+#        - GPIO7
+#        - GPIO15
+
+
 esphome:
-  name: guition-webview-local
-  friendly_name: Guition WebView Local
+  name: guition-webview-4848s040
+  friendly_name: Guition Webview 4848S040
   platformio_options:
     board_build.flash_mode: dio
   on_boot:
     priority: -100
     then:
       - script.execute: inactivity_timer
-
+      
       - lambda: |-
           auto url = id(rwv_default_url).state;
           if (url.size() > 0) {
             id(rwv).set_url(url);
           }
-external_components:
-  - source: 
-      type: local
-      path: components 
-debug:
-  update_interval: 2s
+      - lambda: |-
+          int rotation = atoi(id(rotation_option).state.c_str());
+          id(rwv).set_rotation(rotation);
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -34,20 +77,116 @@ esp32:
       CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
       CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
       CONFIG_SPIRAM_RODATA: y
+    advanced:
+      assertion_level: DISABLE
+      enable_lwip_mdns_queries: false
+      enable_lwip_bridge_interface: false   
     components:
       - name: "espressif/esp_websocket_client"
         ref: 1.5.0
-      - name: "bitbank2/jpegdec"
-        source: https://github.com/strange-v/jpegdec-esphome
+      - name: "espressif/esp-dsp"
+        ref: 1.7.0
+      - name: "espressif/esp_new_jpeg"
+        ref: 1.0.0
+
+api:
+  actions:
+    - action: show_fullscreen_image
+      variables:
+        url: string
+      then:
+        - text.set:
+            id: rwv_url
+            value: !lambda 'return url;'
+
+    - action: set_url_raw
+      variables:
+        url: string
+      then:
+        - lambda: |-
+            std::string final_url = url;
+
+            if (
+              final_url.ends_with(".jpg") ||
+              final_url.ends_with(".png") ||
+              final_url.ends_with(".webp")
+            ) {
+              final_url += "?t=" + to_string(millis());
+            }
+
+            if (!id(rwv).open_url(final_url)) {
+              id(rwv).set_url(final_url);
+            }
+
+wifi:
+  ssid: XIAOMI
+  password: "tukhongdenchin"
+  manual_ip:
+    static_ip: 192.168.10.184
+    gateway: 192.168.10.1
+    subnet: 255.255.255.0
+    dns1: 8.8.8.8
+    dns2: 8.8.4.4
+  ap:
+    ssid: "Guition 4848S040"
+    password: "12345678"
+
+ota:
+  - platform: esphome 
+
+captive_portal:
+
+debug:
+  update_interval: 5s
+
+logger:
+      
+psram:
+  mode: octal
+  speed: 80MHz
+
+preferences:
+  flash_write_interval: 1s
+
+
+external_components:
+  - source: github://minhquanghp86/RemoteWebViewClient@main
+    refresh: 0s
+    components: [ remote_webview ]
+
+
+#external_components:
+#  - source: 
+#      type: local
+#      path: components 
+  
 
 remote_webview:
   id: rwv
   server: 192.168.10.2:8081
-  url: http://192.168.10.2:8123/dashboard-mobile/2
+  url: http://192.168.10.2:8123/dashboard-mobile/2 
   full_frame_tile_count: 1
-  max_bytes_per_msg: 61440
-  jpeg_quality: 40
-  rotation: 0
+  max_bytes_per_msg: 40960 #61440
+  jpeg_quality: 70
+  tile_size: 32 
+
+select:
+  - platform: template
+    name: "Xoay màn hình"
+    id: rotation_option
+    optimistic: true
+    restore_value: true
+    options:
+      - "0"
+      - "90"
+      - "180"
+      - "270"
+    initial_option: "0"
+    set_action:
+      - lambda: |-
+          int rotation = atoi(x.c_str());
+          id(rwv).set_rotation(rotation);
+          id(rwv).reconnect_ws();
 
 
 text:
@@ -59,34 +198,22 @@ text:
     mode: TEXT
     min_length: 1
 
-#  - platform: template
-  #  id: rwv_url
-  #  name: "URL hiển thị"
-  #  optimistic: true
- #   restore_value: false
-  #  mode: TEXT
-  #  min_length: 1
-  #  set_action:
-   #   - lambda: id(inactivity_timer).execute();
-    #  - lambda: |-
-     #     if (!id(rwv).open_url(std::string(x.c_str()))) {
-            #id(rwv).set_url(std::string(x.c_str()));
-      #      ESP_LOGI("remote_webview", "URL queued (not connected): %s", x.c_str());
-    #      }
-
 
   - platform: template
     id: rwv_url
     name: "URL hiển thị"
     optimistic: true
     restore_value: false
-    mode: TEXT
     min_length: 1
+    max_length: 255
+    mode: TEXT
     set_action:
       - lambda: id(inactivity_timer).execute();
       - lambda: |-
           std::string base_url = x.c_str();
-          std::string url = base_url;          
+          std::string url = base_url;
+
+          // 👉 chỉ append ?t= nếu là ảnh
           if (
             base_url.ends_with(".jpg")  ||
             base_url.ends_with(".jpeg") ||
@@ -104,6 +231,7 @@ text:
             ESP_LOGI("remote_webview", "URL loaded: %s", url.c_str());
           }
 
+
 number:
   - platform: template
     name: "Sleep time"
@@ -119,29 +247,35 @@ number:
     step: 1
 
 script:
+  
   - id: inactivity_timer
     mode: restart
     then:
       - if:
           condition:
-            light.is_off: back_light
+            light.is_off: display_backlight
           then:
             - light.turn_on:
-                id: back_light
+                id: display_backlight
             - delay: 0.5s
             - lambda: |-
                 id(rwv).disable_touch(false);
-      - delay: !lambda 'return id(sleep_time).state * 1000;'
-      - light.turn_off:
-          id: back_light
-      - lambda: |-
-          id(rwv).disable_touch(true);
+      - if:
+          condition:
+            media_player.is_playing:
+          then:
+            
+          else:          
+          - delay: !lambda 'return id(sleep_time).state * 1000;'
+          - light.turn_off:
+              id: display_backlight
+          - lambda: |-
+              id(rwv).disable_touch(true);
 
 sensor:
   - platform: debug
     free:
       name: "Heap Free"
-
     block:
       name: "Heap Max Block"
     loop_time:
@@ -193,43 +327,20 @@ button:
               ESP_LOGI("remote_webview", "Opened default URL: %s", url.c_str());
             }
 
-
   - platform: restart 
     name: "Khởi động lại"
     id: restart_switch  
                   
 
-psram:
-  mode: octal
-  speed: 80MHz
-logger:
-  hardware_uart: UART0
-api:
-ota:
-  - platform: esphome
-   
-wifi:
-  id: iptime
-  ssid: xxxx
-  password: "xxxx"
-  manual_ip:
-    static_ip: 192.168.x.x
-    gateway: 192.168.x.x
-    subnet: 255.255.255.0
-    dns1: 8.8.8.8
-    dns2: 8.8.4.4
-  ap:
-    ssid: "Guition webview"
-    password: "12345678"
-
-captive_portal:   
 spi:
   clk_pin: GPIO48
   mosi_pin: GPIO47
+
 i2c:
   - id: bus_a
     sda: GPIO19
     scl: GPIO45
+
 display:
   - platform: st7701s
     show_test_card: False
@@ -298,11 +409,68 @@ light:
   - platform: monochromatic
     output: backlight_pwm
     name: "Display Backlight"
-    id: back_light
+    id: display_backlight
     restore_mode: ALWAYS_ON
     on_turn_off:
       then:
         - button.press: go_home
 
 
+i2s_audio:
+  - id: i2s_audio_bus
+    i2s_lrclk_pin:
+      number: 2
+    i2s_bclk_pin:
+      number: 1
+
+
+speaker:
+  - platform: i2s_audio
+    id: speaker_id
+    i2s_audio_id: i2s_audio_bus
+    dac_type: external
+    i2s_dout_pin: GPIO40
+    sample_rate: 16000
+    bits_per_channel: 16bit
+    channel: mono
+
+
+  - platform: mixer
+    id: mixer_speaker_id
+    output_speaker: speaker_id
+    source_speakers:
+      - id: announcement_spk_mixer_input
+      - id: media_spk_mixer_input
+
+  - platform: resampler
+    id: media_spk_resampling_input
+    output_speaker: media_spk_mixer_input
+    
+
+  - platform: resampler
+    id: announcement_spk_resampling_input
+    output_speaker: announcement_spk_mixer_input
+
+media_player:
+  - platform: speaker
+    name: "Loa 3"
+    id: speaker_media_player_id
+    task_stack_in_psram: true
+    codec_support_enabled: true
+    volume_max: 100%
+    announcement_pipeline:
+      speaker: announcement_spk_resampling_input
+      format: WAV
+      num_channels: 1
+      sample_rate: 16000
+    media_pipeline:
+      speaker: media_spk_resampling_input
+      format: WAV
+      num_channels: 1     
+      sample_rate: 16000 
+    buffer_size: 1000000
+    on_play:
+      - script.execute: inactivity_timer
+    on_idle:
+      - script.execute: inactivity_timer
 
